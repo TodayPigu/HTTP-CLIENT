@@ -1,9 +1,11 @@
 #include "coucheHttp.h"
 #include "rechercheInformation.h"
 #include <string>
+#include <stdexcept>
 #include <iostream>
 #include <unistd.h>
 #include <sstream>
+using namespace std;
 
 #define BUFLEN 512
 
@@ -15,8 +17,7 @@ Http::Http(Header head) {
         // initiates use of the Winsock DLL
         if ( WSAStartup (MAKEWORD( 2 , 2 ) , &WSAData))
         {
-            std::cout<<"Error in the WSAStatrup; Have you got a connexion internet?"<<std::endl;
-            exit(-1);
+            throw std::runtime_error("Error in the WSAStatrup; Have you got a connexion internet?");
         }
     #endif
     CreateSocket ( head );
@@ -30,8 +31,7 @@ void Http::CreateSocket(Header head) {
     hostinfo = gethostbyname(hostname); /* on récupère les informations de l'hôte auquel on veut se connecter */
     if (hostinfo == NULL) /* l'hôte n'existe pas */
     {
-        fprintf (stderr, "Unknown host %s\n", hostname);
-        exit(-1);
+        throw std::runtime_error("Unknown host");
     }
 
     sock = socket(AF_INET,SOCK_STREAM,0);
@@ -44,8 +44,12 @@ void Http::CreateSocket(Header head) {
 void Http::ConnectSocket(){
     if ( connect(sock,(SOCKADDR *)&sin,sizeof(sin)) == SOCKET_ERROR)
     {
-        std::cout<<"Error in the connection..."<<std::endl;
-        exit(-1);
+        try {
+            closesocket(sock);
+        } catch(...) {
+        }
+
+        throw std::runtime_error("Error in the connection...");
     }
 }
 
@@ -81,55 +85,8 @@ std::string Http::getPage(Header* head){
 
     getCookie(head,reponce);
     head->setReferer("http://"+head->getHostString(true)+head->getPathString());
-    redirection(head,&reponce);
 
     return reponce;
-}
-
-void  Http::redirection(Header* head,std::string* reponce){
-    if(reponce->find("\r\nlocation: ") != std::string::npos|| reponce->find("\r\nLocation: ") != std::string::npos)//TODO changer imagine que sur le content y a un \r\nlocation
-    {
-
-        if(reponce->find("\r\nlocation: ") != std::string::npos)
-            RechercheInfo::searchCutLeft(reponce,"\r\nlocation: ",true);
-
-
-         if(reponce->find("\r\nLocation: ") != std::string::npos)
-            RechercheInfo::searchCutLeft(reponce,"\r\nLocation: ",true);
-
-            RechercheInfo::searchCutRight(reponce,"\r\n",true);
-
-        if (  reponce->find("https://")== std::string::npos) {
-            std::cout<<"Probleme il y a une redirection vers une page https. Hors cette librairie ne les prends pas en compte. VOus pouvez toujours financer Lucas Bertola pour qu'il devloppe cette partie."<<std::endl;
-            exit(-1);
-        }
-        else if(reponce->find("http://")== std::string::npos )
-            head->setPath(*reponce);
-        else {
-            std::string host = "";
-            std::string path ="/";
-
-            RechercheInfo::searchCutLeft(reponce,"http://",true);
-
-            if(reponce->find("/")== std::string::npos)
-                host = *reponce;
-            else {
-                path = *reponce;
-                host = *reponce;
-
-                RechercheInfo::searchCutLeft(&path,"/",false);
-                RechercheInfo::searchCutRight(&host,"/",true);
-            }
-
-            head->setHost("http://"+host);
-            head->setPath(path);
-        }
-        head->setMethod("GET");
-
-        head->removeVariable();
-
-        (*reponce) = getPage(head);
-    }
 }
 
 void Http::sendPaquet(Header head)
@@ -192,8 +149,13 @@ void Http::sendPaquet(Header head)
         nbEnvoyer+=erreur;
         if(erreur==0||erreur==-1)
         {
-            std::cout<<"Erreur dans l'envois de la requette...La connexion a t elle pas été fermé?. "<<erreur<<std::endl;//TODO GERER UNE RECONNEXION
-            exit(-1);
+            try {
+                closesocket(sock);
+            } catch(...) {
+            }
+
+            delete[] bufferOutput;
+            throw std::runtime_error("Erreur dans l'envois de la requette...La connexion a t elle pas été fermé?. ");
         }
     }
 

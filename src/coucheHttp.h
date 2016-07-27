@@ -3,8 +3,7 @@
 
 #if defined(WIN32)
     # include <WinSock2.h>
-#else if defined(UNIX)
-
+#else
     #include <sys/types.h>
     #include <sys/socket.h>
     #include <netinet/in.h>
@@ -18,9 +17,8 @@
     typedef struct sockaddr_in SOCKADDR_IN;
     typedef struct sockaddr SOCKADDR;
     typedef struct in_addr IN_ADDR;
-
-
 #endif
+
 
 #include <string.h>
 #include <cstdlib>
@@ -52,7 +50,6 @@ class Http
         SOCKET sock;
         SOCKADDR_IN sin;
 
-        void redirection(Header* head,std::string* reponce);
         int recvTimeOut(unsigned int s,  int millisecond,std::string *chaine);
 
 
